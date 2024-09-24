@@ -17,6 +17,7 @@ module dftbp_dftb_hamiltonian
   use dftbp_dftb_dftbplusu, only : TDftbU
   use dftbp_dftb_dispersions, only : TDispersionIface
   use dftbp_dftb_extfields, only : TEField
+  use dftbp_dftb_multiexpan, only : TDftbMultiExpan
   use dftbp_dftb_periodic, only : TNeighbourList
   use dftbp_dftb_potentials, only : TPotentials
   use dftbp_dftb_scc, only : TScc
@@ -148,7 +149,7 @@ contains
   !> spin, and where relevant dispersion
   subroutine addChargePotentials(env, sccCalc, tblite, updateScc, qInput, q0, chargePerShell,&
       & orb, multipole, species, neighbourList, img2CentCell, spinW, solvation, thirdOrd,&
-      & dispersion, potential, errStatus)
+      & dftbMultiExpan, dispersion, potential, errStatus)
 
     !> Environment settings
     type(TEnvironment), intent(inout) :: env
@@ -195,6 +196,9 @@ contains
     !> Third order SCC interactions
     type(TThirdOrder), allocatable, intent(inout) :: thirdOrd
 
+    !> Multipole expansion
+    type(TDftbMultiExpan), allocatable, intent(inout) :: dftbMultiExpan
+
     !> Potentials acting
     type(TPotentials), intent(inout) :: potential
 
@@ -207,6 +211,7 @@ contains
     ! local variables
     real(dp), allocatable :: atomPot(:,:)
     real(dp), allocatable :: shellPot(:,:,:)
+    real(dp), allocatable :: deltaMAtom(:)
     real(dp), allocatable :: dipPot(:,:), quadPot(:,:)
     integer, pointer :: pSpecies0(:)
     integer :: nAtom, nSpin
@@ -262,6 +267,13 @@ contains
       if (allocated(potential%quadrupoleAtom)) then
         potential%quadrupoleAtom(:,:) = potential%quadrupoleAtom + quadPot
       end if
+    end if
+
+    if (allocated(dftbMultiExpan)) then
+      allocate(deltaMAtom(nAtom))
+      call sccCalc%getDeltaQAtom(deltaMAtom)
+      call dftbMultiExpan%updateDQPotentials(deltaMAtom)
+      deallocate(deltaMAtom)
     end if
 
     if (allocated(thirdOrd)) then
@@ -331,7 +343,7 @@ contains
 
   !> Returns the Hamiltonian for the given scc iteration
   subroutine getSccHamiltonian(env, H0, ints, nNeighbourSK, neighbourList, species, orb,&
-      & iSparseStart, img2CentCell, potential, isREKS, ham, iHam)
+      & iSparseStart, img2CentCell, potential, dftbMultiExpan, isREKS, ham, iHam)
 
     !> Environment settings
     type(TEnvironment), intent(in) :: env
@@ -362,6 +374,9 @@ contains
 
     !> Potential acting on system
     type(TPotentials), intent(in) :: potential
+
+    !> DFTB multipole expansion
+    type(TDftbMultiExpan), allocatable, intent(inout) :: dftbMultiExpan
 
     !> Is this DFTB/SSR formalism
     logical, intent(in) :: isREKS
@@ -411,6 +426,11 @@ contains
       call addAtomicMultipoleShift(ham, ints%quadrupoleBra, ints%quadrupoleKet, nNeighbourSK,&
           & neighbourList%iNeighbour, species, orb, iSparseStart, nAtom, img2CentCell,&
           & potential%quadrupoleAtom)
+    end if
+
+    if (allocated(dftbMultiExpan)) then
+      call dftbMultiExpan%addMultiExpanHamiltonian(ham, ints%overlap, nNeighbourSK,&
+          & neighbourList%iNeighbour, species, orb, iSparseStart, nAtom, img2CentCell)
     end if
 
     if (allocated(iHam)) then
