@@ -34,6 +34,7 @@ module dftbp_dftbplus_main
   use dftbp_dftb_hamiltonian, only : resetInternalPotentials, addChargePotentials,&
       & getSccHamiltonian, mergeExternalPotentials, resetExternalPotentials,&
       & addBlockChargePotentials, constrainSccHamiltonian
+  use dftbp_dftb_multiexpan, only : TDftbMultiExpan
   use dftbp_dftb_hybridxc, only : THybridXcFunc, hybridXcAlgo
   use dftbp_dftb_nonscc, only : TNonSccDiff, buildS, buildH0
   use dftbp_dftb_onsitecorrection, only : Onsblock_expand, onsBlock_reduce, addOnsShift
@@ -373,7 +374,7 @@ contains
         call writeDetailedOut7(this%fdDetailedOut%unit,&
             & this%isGeoOpt .or. allocated(this%geoOpt), tGeomEnd, this%tMd, this%tDerivs,&
             & this%eField, this%dipoleMoment, this%deltaDftb, this%eFieldScaling,&
-            & this%dipoleMessage)
+            & this%dipoleMessage, this%quadrupoleMoment)
       end if
 
       call writeFinalDriverStatus(this%isGeoOpt .or. allocated(this%geoOpt), tGeomEnd, this%tMd,&
@@ -755,8 +756,8 @@ contains
 
       call addChargePotentials(env, this%scc, this%tblite, updateScc, q, this%q0,&
           & this%chargePerShell, this%orb, this%multipoleInp, this%species, this%neighbourList,&
-          & this%img2CentCell, this%spinW, this%solvation, this%thirdOrd, this%dispersion,&
-          & this%potential, errStatus)
+          & this%img2CentCell, this%spinW, this%solvation, this%thirdOrd, this%dftbMultiExpan,&
+          & this%dispersion, this%potential, errStatus)
       @:PROPAGATE_ERROR(errStatus)
 
       call addBlockChargePotentials(qBlock, qiBlock, this%dftbU, this%tImHam,&
@@ -931,6 +932,9 @@ contains
       ! Mix charges Input/Output
 
       if (.not. this%isHybridXc) then
+        ! if (allocated(this%dftbMultiExpan)) then
+        !   call this%dftbMultiExpan%pushDeltaDQAtom(this%multipoleOut)
+        ! end if
         call getNextInputCharges(env, this%pChrgMixerReal, this%qOutput, this%qOutRed, this%orb,&
             & this%nIneqOrb, this%iEqOrbitals, iGeoStep, iSccIter, this%minSccIter,&
             & this%maxSccIter, this%sccTol, tStopScc, this%tMixBlockCharges, this%tReadChrg,&
@@ -938,6 +942,9 @@ contains
             & this%iEqBlockDftbU, this%qBlockIn, this%qiBlockOut, this%iEqBlockDftbULS,&
             & this%species0, this%qiBlockIn, this%iEqBlockOnSite, this%iEqBlockOnSiteLS,&
             & this%nIneqDip, this%nIneqQuad, this%multipoleOut, this%multipoleInp)
+        ! if (allocated(this%dftbMultiExpan)) then
+        !   call this%dftbMultiExpan%pullDeltaDQAtom(this%multipoleInp)
+        ! end if
       else
         if (this%tRealHS) then
           call getNextInputDensityReal(env, this%parallelKS, this%SSqrReal, this%ints,&
@@ -1033,7 +1040,8 @@ contains
           & this%dispersion, allocated(this%eField), this%tPeriodic, this%nSpin, this%tSpin,&
           & this%tSpinOrbit, this%tSccCalc, allocated(this%onSiteElements),&
           & this%iAtInCentralRegion, this%electronicSolver, allocated(this%halogenXCorrection),&
-          & this%isHybridXc, allocated(this%thirdOrd), allocated(this%solvation))
+          & this%isHybridXc, allocated(this%thirdOrd), allocated(this%solvation),&
+          & allocated(this%quadrupoleMoment))
     end if
 
   end subroutine sccLoopWriting
@@ -1123,8 +1131,8 @@ contains
           & this%species0, this%cutOff, this%orb, this%tPeriodic, this%tRealHS, this%tHelical,&
           & this%scc, this%tblite, this%repulsive, this%dispersion,this%solvation,&
           & this%areSolventNeighboursSym, this%thirdOrd, this%hybridXc, this%reks,&
-          & this%img2CentCell, this%iCellVec, this%neighbourList, this%symNeighbourList,&
-          & this%nAllAtom, this%coord0Fold, this%coord,this%species, this%cellVec, this%rCellVec,&
+          & this%dftbMultiExpan, this%img2CentCell, this%iCellVec, this%neighbourList, this%symNeighbourList,&
+          & this%nAllAtom, this%coord0Fold, this%coord, this%species, this%cellVec, this%rCellVec,&
           & this%denseDesc, this%nNeighbourSk, this%nNeighbourCam, this%nNeighbourCamSym,&
           & this%ints, this%H0, this%rhoPrim, this%iRhoPrim, this%ERhoPrim, this%iSparseStart,&
           & this%cm5Cont, this%skOverCont, errStatus)
@@ -1223,7 +1231,8 @@ contains
       ! We need to define Hamiltonian by adding the potential
       call getSccHamiltonian(env, this%H0, this%ints, this%nNeighbourSK, this%neighbourList,&
           & this%species, this%orb, this%iSparseStart, this%img2CentCell, this%potential,&
-          & allocated(this%reks), this%ints%hamiltonian, this%ints%iHamiltonian)
+          & this%dftbMultiExpan, allocated(this%reks), this%ints%hamiltonian,&
+          & this%ints%iHamiltonian)
       tExitGeoOpt = .true.
       return
     end if
@@ -1275,8 +1284,8 @@ contains
             & this%nNeighbourCamSym, this%tDualSpinOrbit, this%xi, this%isExtField, this%isXlbomd,&
             & this%dftbU, this%dftbEnergy(1)%TS, this%qDepExtPot, this%qBlockOut, this%qiBlockOut,&
             & this%tFixEf, this%Ef, this%rhoPrim, this%onSiteElements, this%dispersion, tConverged,&
-            & this%species0, this%referenceN0, this%qNetAtom, this%multipoleOut, this%reks,&
-            & errStatus)
+            & this%species0, this%referenceN0, this%qNetAtom, this%multipoleOut,&
+            & this%dftbMultiExpan, this%reks, errStatus)
         @:PROPAGATE_ERROR(errStatus)
         call optimizeFONsAndWeights(this%eigvecsReal, this%filling, this%dftbEnergy(1), this%reks)
 
@@ -1346,7 +1355,8 @@ contains
                 & this%extPressure, this%cellVol, this%tAtomicEnergy, this%dispersion,&
                 & this%tPeriodic, this%tSccCalc, this%invLatVec, this%kPoint,&
                 & this%iAtInCentralRegion, this%electronicSolver, this%reks,&
-                & allocated(this%thirdOrd), this%isHybridXc, qNetAtom=this%qNetAtom)
+                & allocated(this%thirdOrd), this%isHybridXc, qNetAtom=this%qNetAtom,&
+                & isDftbMultiExpan=allocated(this%quadrupoleMoment))
           end if
           if (this%tWriteBandDat) then
             if (this%tMD .and. iGeoStep /= 0 .and. tWriteRestart) then
@@ -1387,7 +1397,7 @@ contains
 
           call getSccHamiltonian(env, this%H0, this%ints, this%nNeighbourSK, this%neighbourList,&
               & this%species, this%orb, this%iSparseStart, this%img2CentCell,&
-              & this%potential, allocated(this%reks), this%ints%hamiltonian,&
+              & this%potential, this%dftbMultiExpan, allocated(this%reks), this%ints%hamiltonian,&
               & this%ints%iHamiltonian)
 
           if (this%tWriteRealHS .or. this%tWriteHS&
@@ -1415,6 +1425,12 @@ contains
               & this%SSqrCplx, this%eigvecsCplx, this%rhoSqrReal, this%densityMatrix,&
               & this%nNeighbourCam, this%nNeighbourCamSym, this%deltaDftb, errStatus)
           if (errStatus%hasError()) call error(errStatus%message)
+
+          if (allocated(this%dftbMultiExpan)) then
+            call this%dftbMultiExpan%updateDeltaDQAtom(this%ints%overlap, this%rhoPrim(:,1),&
+                & this%orb, this%neighbourList%iNeighbour, this%nNeighbourSK, this%img2CentCell,&
+                & this%iSparseStart, this%q0)
+          end if
 
           if (this%tWriteBandDat) then
             if (this%deltaDftb%nDeterminant() == 1) then
@@ -1451,14 +1467,14 @@ contains
           end if
 
           call calcEnergies(env, this%scc, this%tblite, this%qOutput, this%q0, this%chargePerShell,&
-              & this%multipoleOut, this%species, this%isExtField, this%isXlbomd, this%dftbU,&
-              & this%tDualSpinOrbit, this%rhoPrim, this%H0, this%orb, this%neighbourList,&
-              & this%nNeighbourSk, this%img2CentCell, this%iSparseStart, this%cellVol,&
-              & this%extPressure, this%dftbEnergy(this%deltaDftb%iDeterminant)%TS, this%potential,&
-              & this%dftbEnergy(this%deltaDftb%iDeterminant), this%thirdOrd, this%solvation,&
-              & this%hybridXc, this%reks, this%qDepExtPot, this%qBlockOut, this%qiBlockOut,&
-              & this%xi, this%iAtInCentralRegion, this%tFixEf, this%Ef, this%tRealHS,&
-              & this%onSiteElements, errStatus, qNetAtom=this%qNetAtom,&
+              & this%multipoleOut, this%dftbMultiExpan, this%species, this%isExtField,&
+              & this%isXlbomd, this%dftbU, this%tDualSpinOrbit, this%rhoPrim, this%H0, this%orb,&
+              & this%neighbourList, this%nNeighbourSk, this%img2CentCell, this%iSparseStart,&
+              & this%cellVol, this%extPressure, this%dftbEnergy(this%deltaDftb%iDeterminant)%TS,&
+              & this%potential, this%dftbEnergy(this%deltaDftb%iDeterminant), this%thirdOrd,&
+              & this%solvation, this%hybridXc, this%reks, this%qDepExtPot, this%qBlockOut,&
+              & this%qiBlockOut, this%xi, this%iAtInCentralRegion, this%tFixEf, this%Ef,&
+              & this%tRealHS, this%onSiteElements, errStatus, qNetAtom=this%qNetAtom,&
               & vOnSiteAtomInt=this%potential%intOnSiteAtom,&
               & vOnSiteAtomExt=this%potential%extOnSiteAtom,&
               & densityMatrix=this%densityMatrix, kWeights=this%kWeight,&
@@ -1547,7 +1563,7 @@ contains
             & this%extPressure, this%cellVol, this%tAtomicEnergy, this%dispersion, this%tPeriodic,&
             & this%tSccCalc, this%invLatVec, this%kPoint, this%iAtInCentralRegion,&
             & this%electronicSolver, this%reks, allocated(this%thirdOrd), this%isHybridXc,&
-            & qNetAtom=this%qNetAtom)
+            & qNetAtom=this%qNetAtom, isDftbMultiExpan=allocated(this%quadrupoleMoment))
       else
         call writeDetailedOut1(this%fdDetailedOut%unit, this%iDistribFn, this%nGeoSteps,&
             & iGeoStep, this%tMD, this%tDerivs, this%tCoordOpt, this%tLatOpt, iLatGeoStep,&
@@ -1564,7 +1580,8 @@ contains
             & this%dispersion, allocated(this%eField), this%tPeriodic, this%nSpin, this%tSpin,&
             & this%tSpinOrbit, this%tSccCalc, allocated(this%onSiteElements),&
             & this%iAtInCentralRegion, this%electronicSolver, allocated(this%halogenXCorrection),&
-            & this%isHybridXc, allocated(this%thirdOrd), allocated(this%solvation))
+            & this%isHybridXc, allocated(this%thirdOrd), allocated(this%solvation),&
+            & allocated(this%quadrupoleMoment))
       end if
     end if
 
@@ -1662,6 +1679,13 @@ contains
           & this%orb, this%neighbourList, this%nNeighbourSk, this%species, this%iSparseStart,&
           & this%img2CentCell, this%eFieldScaling, this%hamiltonianType, this%nDipole)
     #:endblock DEBUG_CODE
+      if (allocated(this%dftbMultiExpan)) then
+        call this%dftbMultiExpan%addAtomicDipoleMoment(&
+            & this%dipoleMoment(:,this%deltaDftb%iDeterminant))
+        call getQuadrupoleMoment(this%qOutput, this%q0, this%coord, this%quadrupoleMoment,&
+            & this%iAtInCentralRegion)
+        call this%dftbMultiExpan%addAtomicQuadrupoleMoment(this%quadrupoleMoment)
+      end if
     end if
 
     ! MD geometry files are written only later, once velocities for the current geometry are known
@@ -1710,11 +1734,10 @@ contains
             & this%iCellVec, this%cellVec, this%rCellVec, this%invLatVec, this%species,&
             & this%img2CentCell, this%iSparseStart, this%orb, this%potential, this%coord,&
             & this%derivs, this%groundDerivs, this%tripletderivs, this%mixedderivs, this%iRhoPrim,&
-            & this%thirdOrd, this%solvation, this%areSolventNeighboursSym, this%qDepExtPot,&
-            & this%chrgForces, this%dispersion, this%hybridXc, this%SSqrReal, this%ints,&
-            & this%denseDesc, this%halogenXCorrection, this%tHelical, this%coord0, this%deltaDftb,&
-            & this%tPeriodic, this%tRealHS, this%kPoint, this%kWeight, this%densityMatrix,&
-            & errStatus)
+            & this%thirdOrd, this%solvation, this%areSolventNeighboursSym, this%qDepExtPot, this%chrgForces, this%dispersion,&
+            & this%hybridXc, this%dftbMultiExpan, this%SSqrReal, this%ints, this%denseDesc,&
+            & this%halogenXCorrection, this%tHelical, this%coord0, this%deltaDftb, this%tPeriodic,&
+            & this%tRealHS, this%kPoint, this%kWeight, this%densityMatrix, errStatus)
         @:PROPAGATE_ERROR(errStatus)
         if (this%isCIopt) then
           call conicalIntersectionOptimizer(this%derivs, this%excitedDerivs,&
@@ -1975,8 +1998,8 @@ contains
             & this%tBarostat, this%isLinResp, this%eField, this%tFixEf, this%tPrintMulliken,&
             & this%dftbEnergy, this%energiesCasida, this%latVec, this%derivs, this%totalStress,&
             & this%cellVol, this%intPressure, this%extPressure, tempIon, this%qOutput, this%q0,&
-            & this%dipoleMoment, this%eFieldScaling, this%dipoleMessage, this%electronicSolver,&
-            & this%deltaDftb, this%mdOutput)
+            & this%dipoleMoment, this%eFieldScaling, this%dipoleMessage, this%quadrupoleMoment,&
+            & this%electronicSolver, this%deltaDftb, this%mdOutput)
         call writeCurrentGeometry(this%geoOutFile, this%pCoord0Out, .false., .true., .true.,&
             & this%tFracCoord, this%tPeriodic, this%tHelical, this%tPrintMulliken, this%species0,&
             & this%speciesName, this%latVec, this%origin, iGeoStep, iLatGeoStep, this%nSpin,&
@@ -2179,7 +2202,7 @@ contains
   !> Does the operations that are necessary after atomic coordinates change
   subroutine handleCoordinateChange(env, boundaryCond, coord0, latVec, invLatVec, species0, cutOff,&
       & orb, tPeriodic, tRealHS, tHelical, sccCalc, tblite, repulsive, dispersion, solvation,&
-      & areSolventNeighboursSym, thirdOrd, hybridXc, reks, img2CentCell, iCellVec, neighbourList,&
+      & areSolventNeighboursSym, thirdOrd, hybridXc, reks, dftbMultiExpan, img2CentCell, iCellVec, neighbourList,&
       & symNeighbourList, nAllAtom, coord0Fold, coord, species, cellVec, rCellVec, denseDescr,&
       & nNeighbourSK, nNeighbourCam, nNeighbourCamSym, ints, H0, rhoPrim, iRhoPrim, ERhoPrim,&
       & iSparseStart, cm5Cont, skOverCont, errStatus)
@@ -2243,6 +2266,9 @@ contains
 
     !> Data type for REKS
     type(TReksCalc), allocatable, intent(inout) :: reks
+
+    !> multipole contributions
+    type(TDftbMultiExpan), allocatable, intent(inout) :: dftbMultiExpan
 
     !> Image atoms to their equivalent in the central cell
     integer, allocatable, intent(inout) :: img2CentCell(:)
@@ -2364,6 +2390,10 @@ contains
 
     if (allocated(tblite)) then
       call tblite%updateCoords(env, neighbourList, img2CentCell, coord, species)
+    end if
+
+    if (allocated(dftbMultiExpan)) then
+      call dftbMultiExpan%updateCoords(coord0)
     end if
 
     if (allocated(repulsive)) then
@@ -5555,6 +5585,48 @@ contains
   end subroutine checkDipoleViaHellmannFeynman
 
 
+  !> Calculates quadrupole moment.
+  subroutine getQuadrupoleMoment(qOutput, q0, coord, quadrupoleMoment, iAtInCentralRegion)
+
+    !> electrons in orbitals
+    real(dp), intent(in) :: qOutput(:,:,:)
+
+    !> reference atomic charges
+    real(dp), intent(in) :: q0(:,:,:)
+
+    !> atomic coordinates
+    real(dp), intent(in) :: coord(:,:)
+
+    !> resulting quadrupole moment
+    real(dp), intent(out) :: quadrupoleMoment(:,:)
+
+    !> atoms in the central cell (or device region if transport)
+    integer, intent(in) :: iAtInCentralRegion(:)
+
+    integer :: nAtom, ii, iAtom, jj, ll
+    real(dp) dqAtom, tmpTrace
+
+    nAtom = size(qOutput, dim=2)
+    quadrupoleMoment(:,:) = 0.0_dp
+    do ii = 1, size(iAtInCentralRegion)
+      iAtom = iAtInCentralRegion(ii)
+      dqAtom = sum(q0(:, iAtom, 1) - qOutput(:, iAtom, 1))
+      do jj = 1, 3
+        do ll = 1, 3
+          quadrupoleMoment(jj,ll) = quadrupoleMoment(jj,ll)&
+              & + dqAtom * coord(jj,iAtom) * coord(ll,iAtom)
+        end do
+      end do
+    end do
+
+    tmpTrace = (quadrupoleMoment(1,1) + quadrupoleMoment(2,2) + quadrupoleMoment(3,3)) / 3.0_dp
+    do ii = 1, 3
+      quadrupoleMoment(ii,ii) = quadrupoleMoment(ii,ii) - tmpTrace
+    end do
+
+  end subroutine getQuadrupoleMoment
+
+
   !> Calculate the energy weighted density matrix
   !>
   !> NOTE: Dense eigenvector and overlap matrices are overwritten.
@@ -6382,10 +6454,10 @@ contains
       & nonSccDeriv, rhoPrim, ERhoPrim, qOutput, q0, skHamCont, skOverCont, repulsive,&
       & neighbourList, symNeighbourList, nNeighbourSK, nNeighbourCamSym, iCellVec, cellVecs,&
       & rCellVecs, recVecs2p, species, img2CentCell, iSparseStart, orb, potential, coord, derivs,&
-      & groundDerivs, tripletderivs, mixedderivs, iRhoPrim, thirdOrd, solvation,&
-      & areSolventNeighboursSym, qDepExtPot, chrgForces, dispersion, hybridXc, SSqrReal, ints,&
-      & denseDesc, halogenXCorrection, tHelical, coord0, deltaDftb, tPeriodic, tRealHS, kPoint,&
-      & kWeight, densityMatrix, errStatus)
+      & groundDerivs, tripletderivs, mixedderivs, iRhoPrim, thirdOrd, solvation, areSolventNeighboursSym, qDepExtPot,&
+      & chrgForces, dispersion, hybridXc, dftbMultiExpan, SSqrReal, ints, denseDesc,&
+      & halogenXCorrection, tHelical, coord0, deltaDftb, tPeriodic, tRealHS, kPoint, kWeight,&
+      & densityMatrix, errStatus)
 
     !> Environment settings
     type(TEnvironment), intent(inout) :: env
@@ -6510,6 +6582,9 @@ contains
     !> Data for hybrid xc-functional calculation
     class(THybridXcFunc), intent(inout), allocatable :: hybridXc
 
+    !> Multipole contributions
+    type(TDftbMultiExpan), allocatable, intent(inout) :: dftbMultiExpan
+
     !> Dense overlap matrix, required for hybridXc
     real(dp), intent(inout), allocatable :: SSqrReal(:,:)
 
@@ -6628,6 +6703,12 @@ contains
         else
           call thirdOrd%addGradientDc(neighbourList, species, coord, img2CentCell, derivs)
         end if
+      end if
+
+      if (allocated(dftbMultiExpan)) then
+        call dftbMultiExpan%addMultiExpanGradients(derivs, nonSccDeriv, skOverCont, rhoPrim(:,1),&
+            & species, neighbourList%iNeighbour, nNeighbourSK, img2CentCell, iSparseStart,&
+            & orb, coord)
       end if
 
       if (allocated(qDepExtPot)) then
@@ -7994,7 +8075,7 @@ contains
       & cellVol, extPressure, energy, q0, iAtInCentralRegion, solvation, thirdOrd, potential,&
       & hybridXc, nNeighbourCam, nNeighbourCamSym, tDualSpinOrbit, xi, isExtField, isXlbomd, dftbU,&
       & TS, qDepExtPot, qBlock, qiBlock, tFixEf, Ef, rhoPrim, onSiteElements, dispersion,&
-      & tConverged, species0, referenceN0, qNetAtom, multipole, reks, errStatus)
+      & tConverged, species0, referenceN0, qNetAtom, multipole, dftbMultiExpan, reks, errStatus)
 
     !> Environment settings
     type(TEnvironment), intent(inout) :: env
@@ -8129,6 +8210,9 @@ contains
     !> Multipole container
     type(TMultipole), intent(inout) :: multipole
 
+    !> DFTB multipole expansion
+    type(TDftbMultiExpan), allocatable, intent(inout) :: dftbMultiExpan
+
     !> Data type for REKS
     type(TReksCalc), allocatable, intent(inout) :: reks
 
@@ -8162,7 +8246,7 @@ contains
       call resetInternalPotentials(tDualSpinOrbit, xi, orb, species, potential)
       call addChargePotentials(env, sccCalc, tblite, .true., reks%qOutputL(:,:,:,iL), q0,&
           & reks%chargePerShellL(:,:,:,iL), orb, multipole, species, neighbourList,&
-          & img2CentCell, spinW, solvation, thirdOrd, dispersion, potential, errStatus)
+          & img2CentCell, spinW, solvation, thirdOrd, dftbMultiExpan, dispersion, potential, errStatus)
       @:PROPAGATE_ERROR(errStatus)
 
       ! reks%intShellL, reks%intBlockL has (qm) component
@@ -8191,7 +8275,8 @@ contains
 
       ! tmpHamSp has (my_qm) component
       call getSccHamiltonian(env, H0, ints, nNeighbourSK, neighbourList, species, orb,&
-          & iSparseStart, img2CentCell, potential, allocated(reks), tmpHamSp, ints%iHamiltonian)
+          & iSparseStart, img2CentCell, potential, dftbMultiExpan, allocated(reks), tmpHamSp,&
+          & ints%iHamiltonian)
       tmpHamSp(:,1) = 2.0_dp * tmpHamSp(:,1)
 
       if (reks%isHybridXc) then
@@ -8277,11 +8362,11 @@ contains
       end if
 
       call calcEnergies(env, sccCalc, tblite, reks%qOutputL(:,:,:,iL), q0,&
-          & reks%chargePerShellL(:,:,:,iL), multipole, species, isExtField, isXlbomd, dftbU,&
-          & tDualSpinOrbit, rhoPrim, H0, orb, neighbourList, nNeighbourSk, img2CentCell,&
-          & iSparseStart, cellVol, extPressure, TS, potential, energy, thirdOrd, solvation,&
-          & hybridXc, reks, qDepExtPot, qBlock, qiBlock, xi, iAtInCentralRegion, tFixEf, Ef,&
-          & .true., onSiteElements, errStatus)
+          & reks%chargePerShellL(:,:,:,iL), multipole, dftbMultiExpan, species, isExtField,&
+          & isXlbomd, dftbU, tDualSpinOrbit, rhoPrim, H0, orb, neighbourList, nNeighbourSk,&
+          & img2CentCell, iSparseStart, cellVol, extPressure, TS, potential, energy, thirdOrd,&
+          & solvation, hybridXc, reks, qDepExtPot, qBlock, qiBlock, xi, iAtInCentralRegion, tFixEf,&
+          & Ef, .true., onSiteElements, errStatus)
       @:PROPAGATE_ERROR(errStatus)
 
       if (allocated(dispersion)) then
