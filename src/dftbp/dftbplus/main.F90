@@ -876,6 +876,14 @@ contains
 
     end if
 
+    if (allocated(this%dftbMultiExpan)) then
+      call this%dftbMultiExpan%updateDeltaDQAtom(this%ints%overlap, this%rhoPrim(:,1),&
+          & this%orb, this%neighbourList%iNeighbour, this%nNeighbourSK, this%img2CentCell,&
+          & this%iSparseStart, this%q0)
+
+      call this%dftbMultiExpan%updateDQPotentials(sum(this%qOutput(:,:,1) - this%q0(:,:,1), dim=1))
+    end if
+
   #:if WITH_TRANSPORT
     ! Overrides input charges with uploaded contact charges
     if (this%tUpload) then
@@ -1426,11 +1434,11 @@ contains
               & this%nNeighbourCam, this%nNeighbourCamSym, this%deltaDftb, errStatus)
           if (errStatus%hasError()) call error(errStatus%message)
 
-          if (allocated(this%dftbMultiExpan)) then
-            call this%dftbMultiExpan%updateDeltaDQAtom(this%ints%overlap, this%rhoPrim(:,1),&
-                & this%orb, this%neighbourList%iNeighbour, this%nNeighbourSK, this%img2CentCell,&
-                & this%iSparseStart, this%q0)
-          end if
+          ! if (allocated(this%dftbMultiExpan)) then
+          !   call this%dftbMultiExpan%updateDeltaDQAtom(this%ints%overlap, this%rhoPrim(:,1),&
+          !       & this%orb, this%neighbourList%iNeighbour, this%nNeighbourSK, this%img2CentCell,&
+          !       & this%iSparseStart, this%q0)
+          ! end if
 
           if (this%tWriteBandDat) then
             if (this%deltaDftb%nDeterminant() == 1) then
