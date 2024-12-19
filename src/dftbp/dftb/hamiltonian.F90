@@ -211,7 +211,6 @@ contains
     ! local variables
     real(dp), allocatable :: atomPot(:,:)
     real(dp), allocatable :: shellPot(:,:,:)
-    real(dp), allocatable :: deltaMAtom(:)
     real(dp), allocatable :: dipPot(:,:), quadPot(:,:)
     integer, pointer :: pSpecies0(:)
     integer :: nAtom, nSpin
@@ -269,12 +268,9 @@ contains
       end if
     end if
 
-    if (allocated(dftbMultiExpan)) then
-      allocate(deltaMAtom(nAtom))
-      call sccCalc%getDeltaQAtom(deltaMAtom)
-      call dftbMultiExpan%updateDQPotentials(deltaMAtom)
-      deallocate(deltaMAtom)
-    end if
+    ! if (allocated(dftbMultiExpan)) then
+    !   call dftbMultiExpan%updateDQPotentials(sum(qInput(:,:,1) - q0(:,:,1), dim=1))
+    ! end if
 
     if (allocated(thirdOrd)) then
       call thirdOrd%updateCharges(pSpecies0, neighbourList, qInput, q0, img2CentCell, orb)
