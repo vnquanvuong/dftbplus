@@ -218,6 +218,7 @@ contains
     this%atomOnSite(:) = 0.0_dp
     this%atomHalogenX(:) = 0.0_dp
     this%atom3rd(:) = 0.0_dp
+    this%atomDftbMultiExpan(:) = 0.0_dp
     this%atomSolv(:) = 0.0_dp
     this%atomTotal(:) = 0.0_dp
 
