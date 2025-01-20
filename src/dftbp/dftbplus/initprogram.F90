@@ -1773,23 +1773,34 @@ contains
         this%tQuadrupole = .true.
 
         if (this%tPeriodic) then
-          call error("Multipole expansion currently unsupported for periodic systems")
+          call error("DFTB multipole expansion currently unsupported for periodic systems")
         end if
         if (this%tExtChrg) then
-          call error("Multipole expansion currently unsupported for external charges")
+          call error("DFTB multipole expansion currently unsupported for external charges")
         end if
         if (input%ctrl%tSpin) then
-          call error("Multipole expansion currently unsupported for spin-polarised calculations")
+          call error("DFTB multipole expansion currently unsupported for spin-polarised&
+              & calculations")
         end if
         if (allocated(input%ctrl%lrespini)) then
-          call error("Multipole expansion currently unsupported for excited state calculations")
+          call error("DFTB multipole expansion currently unsupported for excited state&
+              & calculations")
         end if
         if (allocated(input%ctrl%hybridXcInp)) then
-          call error("Multipole expansion currently incompatible with hybrid functionals")
+          call error("DFTB multipole expansion currently incompatible with hybrid functionals")
         end if
         if (allocated(this%onSiteElements)) then
-          call error("Multipole expansion currently incompatible with onsite corrections")
+          call error("DFTB multipole expansion currently incompatible with onsite corrections")
         end if
+        if (input%ctrl%tShellResolved) then
+          call error("DFTB multipole expansion currently incompatible with shell-resolved SCC")
+        end if
+      #:if WITH_TRANSPORT
+        ! Check for incompatible options if this is a transport calculation
+        if (this%transpar%nCont > 0 .or. this%isAContactCalc) then
+          call error("DFTB multipole expansion currently incompatible with transport calculations")
+        endif
+      #:endif
 
         this%mdftbInp%orb => this%orb
         this%mdftbInp%nOrb = this%nOrb
@@ -7000,6 +7011,8 @@ contains
 
   end subroutine initCoulombInput_
 
+
+  !> Initialise DFTB multipole integrals
   subroutine initMdftbAtomicIntegrals(mdftbInp, ctrl)
 
     !> input data structure for multipole
