@@ -333,7 +333,7 @@ contains
 
 
   !> Determines the value of a part of the short range contribution to the exponential gamma, when
-  !> Ua /= Ub and R > 0
+  !! Ua /= Ub and R > 0
   function gammaSubfExprn(rab,tau1,tau2)
 
     !> separation of sites a and b
@@ -365,7 +365,7 @@ contains
 
 
   !> Determines the value of a part of the short range contribution to the exponential gamma, when
-  !> Ua /= Ub and R > 0
+  !! Ua /= Ub and R > 0
   function gammaSubgExprn(rab,tauMean)
 
     !> separation of sites a and b
@@ -391,7 +391,7 @@ contains
 
 
   !> Determines the derivative of the value of a part of the short range contribution to the
-  !> exponential gamma, when Ua /= Ub and R > 0
+  !! exponential gamma, when Ua /= Ub and R > 0
   function gammaSubfExprnPrime(rab, tau1, tau2)
 
     !> separation of sites a and b
@@ -423,7 +423,7 @@ contains
 
 
   !> Determines the value of a part of the short range contribution to the exponential gamma, when
-  !> Ua /= Ub and R > 0
+  !! Ua /= Ub and R > 0
   function gammaSubgExprnPrime(rab, tauMean)
 
     !> separation of sites a and b
@@ -449,7 +449,7 @@ contains
 
 
   !> Determines the seconde derivative of the value of a part of the short range contribution to the
-  !> exponential gamma, when Ua /= Ub and R > 0
+  !! exponential gamma, when Ua /= Ub and R > 0
   function gammaSubfExprnDoublePrime(rab, tau1, tau2)
 
     !> separation of sites a and b
@@ -479,7 +479,7 @@ contains
   end function gammaSubfExprnDoublePrime
 
   !> Determines the value of a part of the short range contribution to the exponential gamma, when
-  !> Ua /= Ub and R > 0
+  !! Ua /= Ub and R > 0
   function gammaSubgExprnDoublePrime(rab, tauMean)
 
     !> separation of sites a and b
@@ -503,7 +503,7 @@ contains
 
 
   !> Determines the seconde derivative of the value of a part of the short range contribution to the
-  !> exponential gamma, when Ua /= Ub and R > 0
+  !! exponential gamma, when Ua /= Ub and R > 0
   function gammaSubfExprnTriplePrime(rab, tau1, tau2)
 
     !> separation of sites a and b
@@ -533,7 +533,7 @@ contains
   end function gammaSubfExprnTriplePrime
 
   !> Determines the value of a part of the short range contribution to the exponential gamma, when
-  !> Ua /= Ub and R > 0
+  !! Ua /= Ub and R > 0
   function gammaSubgExprnTriplePrime(rab, tauMean)
 
     !> separation of sites a and b
@@ -556,7 +556,7 @@ contains
 
 
   !> Determines the seconde derivative of the value of a part of the short range contribution to the
-  !> exponential gamma, when Ua /= Ub and R > 0
+  !! exponential gamma, when Ua /= Ub and R > 0
   function gammaSubfExprnQuadruplePrime(rab, tau1, tau2)
 
     !> separation of sites a and b
@@ -586,7 +586,7 @@ contains
   end function gammaSubfExprnQuadruplePrime
 
   !> Determines the value of a part of the short range contribution to the exponential gamma, when
-  !> Ua /= Ub and R > 0
+  !! Ua /= Ub and R > 0
   function gammaSubgExprnQuadruplePrime(rab, tauMean)
 
     !> separation of sites a and b
@@ -609,7 +609,7 @@ contains
 
 
   !> Determines the seconde derivative of the value of a part of the short range contribution to the
-  !> exponential gamma, when Ua /= Ub and R > 0
+  !! exponential gamma, when Ua /= Ub and R > 0
   function gammaSubfExprnQuintuplePrime(rab, tau1, tau2)
 
     !> separation of sites a and b
@@ -639,7 +639,7 @@ contains
   end function gammaSubfExprnQuintuplePrime
 
   !> Determines the value of a part of the short range contribution to the exponential gamma, when
-  !> Ua /= Ub and R > 0
+  !! Ua /= Ub and R > 0
   function gammaSubgExprnQuintuplePrime(rab, tauMean)
 
     !> separation of sites a and b
@@ -662,7 +662,7 @@ contains
 
 
   !> Determines the value of the second derivative of the short range contribution to gamma with the
-  !> exponential form
+  !! exponential form
   function expGammaDoublePrime(rab, Ua, Ub)
 
     !> separation of sites a and b
@@ -726,7 +726,7 @@ contains
 
 
   !> Determines the value of the third derivative of the short range contribution to gamma with the
-  !> exponential form
+  !! exponential form
   function expGammaTriplePrime(rab, Ua, Ub)
 
     !> separation of sites a and b
@@ -786,7 +786,7 @@ contains
 
 
   !> Determines the value of the fourth derivative of the short range contribution to gamma with the
-  !> exponential form
+  !! exponential form
   function expGammaQuadruplePrime(rab, Ua, Ub)
 
     !> separation of sites a and b
@@ -856,7 +856,7 @@ contains
 
 
   !> Determines the value of the fifth derivative of the short range contribution to gamma with the
-  !> exponential form
+  !! exponential form
   function expGammaQuintuplePrime(rab, Ua, Ub)
 
     !> separation of sites a and b
