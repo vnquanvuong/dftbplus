@@ -5952,6 +5952,8 @@ contains
 
   end subroutine writeCosmoFile
 
+
+  !> Prints out the total quadrupole moment of the system
   subroutine printQuadrupoleMoment(quadrupoleMoment, outUnit)
 
     !> quadrupole moment
@@ -5986,5 +5988,6 @@ contains
     write(iUnit, *)
 
   end subroutine printQuadrupoleMoment
+
 
 end module dftbp_dftbplus_mainio
